@@ -31,13 +31,12 @@ import (
 )
 
 var (
-	showDetails bool
+	showDetails   bool
+	showGPUMemory bool
 )
-
-type NodeInfo struct {
-	node v1.Node
-	pods []v1.Pod
-}
+var pods []v1.Pod
+var nodes []v1.Node
+var err error
 
 func NewTopNodeCommand() *cobra.Command {
 
@@ -62,11 +61,25 @@ func NewTopNodeCommand() *cobra.Command {
 				fmt.Println(err)
 				os.Exit(1)
 			}
+			if showGPUMemory {
+
+				nodes, err = getAllSharedGPUNode()
+				if err == nil {
+					pods, err = getActivePodsInAllNodes()
+				}
+				nodeInfos, err := buildAllNodeInfos(pods, nodes)
+				if err != nil {
+					fmt.Printf("Failed due to %v", err)
+					os.Exit(1)
+				}
+				displayDetails(nodeInfos)
+			}
 			displayTopNode(nodeInfos)
 		},
 	}
 
 	command.Flags().BoolVarP(&showDetails, "details", "d", false, "Display details")
+	command.Flags().BoolVarP(&showGPUMemory, "showmem", "mem", false, "Display GPUmemory details")
 	return command
 }
 
