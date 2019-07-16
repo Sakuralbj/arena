@@ -117,6 +117,112 @@ func displayDetails(nodeInfos []*NodeInfo) {
 	_ = w.Flush()
 }
 
+func displaySummary(nodeInfos []*NodeInfo) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	var (
+		maxGPUCount          int
+		totalGPUMemInCluster int64
+		usedGPUMemInCluster  int64
+		prtLineLen           int
+	)
+
+	hasPendingGPU := hasPendingGPUMemory(nodeInfos)
+
+	maxGPUCount = getMaxGPUCount(nodeInfos)
+
+	var buffer bytes.Buffer
+	buffer.WriteString("NAME\tIPADDRESS\t")
+	for i := 0; i < maxGPUCount; i++ {
+		buffer.WriteString(fmt.Sprintf("GPU%d(Allocated/Total)\t", i))
+	}
+
+	if hasPendingGPU {
+		buffer.WriteString("PENDING(Allocated)\t")
+	}
+	buffer.WriteString(fmt.Sprintf("GPU Memory(%s)\n", memoryUnit))
+
+	// fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Allocated/Total)\tPENDING(Allocated)\n")
+	fmt.Fprintf(w, buffer.String())
+	for _, nodeInfo := range nodeInfos {
+		address := "unknown"
+		if len(nodeInfo.node.Status.Addresses) > 0 {
+			// address = nodeInfo.node.Status.Addresses[0].Address
+			for _, addr := range nodeInfo.node.Status.Addresses {
+				if addr.Type == v1.NodeInternalIP {
+					address = addr.Address
+					break
+				}
+			}
+		}
+
+		gpuMemInfos := []string{}
+		pendingGPUMemInfo := ""
+		usedGPUMemInNode := 0
+		totalGPUMemInNode := nodeInfo.gpuTotalMemory
+		if totalGPUMemInNode <= 0 {
+			continue
+		}
+
+		for i := 0; i < maxGPUCount; i++ {
+			gpuMemInfo := "0/0"
+			if dev, ok := nodeInfo.devs[i]; ok {
+				gpuMemInfo = dev.String()
+				usedGPUMemInNode += dev.usedGPUMem
+			}
+			gpuMemInfos = append(gpuMemInfos, gpuMemInfo)
+		}
+
+		// check if there is pending dev
+		if dev, ok := nodeInfo.devs[-1]; ok {
+			pendingGPUMemInfo = fmt.Sprintf("%d", dev.usedGPUMem)
+			usedGPUMemInNode += dev.usedGPUMem
+		}
+
+		nodeGPUMemInfo := fmt.Sprintf("%d/%d", usedGPUMemInNode, totalGPUMemInNode)
+
+		var buf bytes.Buffer
+		buf.WriteString(fmt.Sprintf("%s\t%s\t", nodeInfo.node.Name, address))
+		for i := 0; i < maxGPUCount; i++ {
+			buf.WriteString(fmt.Sprintf("%s\t", gpuMemInfos[i]))
+		}
+		if hasPendingGPU {
+			buf.WriteString(fmt.Sprintf("%s\t", pendingGPUMemInfo))
+		}
+
+		buf.WriteString(fmt.Sprintf("%s\n", nodeGPUMemInfo))
+		fmt.Fprintf(w, buf.String())
+
+		if prtLineLen == 0 {
+			prtLineLen = buf.Len() + 20
+		}
+
+		usedGPUMemInCluster += int64(usedGPUMemInNode)
+		totalGPUMemInCluster += int64(totalGPUMemInNode)
+	}
+	// fmt.Fprintf(w, "-----------------------------------------------------------------------------------------\n")
+	var prtLine bytes.Buffer
+	for i := 0; i < prtLineLen; i++ {
+		prtLine.WriteString("-")
+	}
+	prtLine.WriteString("\n")
+	fmt.Fprint(w, prtLine.String())
+
+	fmt.Fprintf(w, "Allocated/Total GPU Memory In Cluster:\n")
+	log.V(2).Infof("gpu: %s, allocated GPU Memory %s", strconv.FormatInt(totalGPUMemInCluster, 10),
+		strconv.FormatInt(usedGPUMemInCluster, 10))
+	var gpuUsage float64 = 0
+	if totalGPUMemInCluster > 0 {
+		gpuUsage = float64(usedGPUMemInCluster) / float64(totalGPUMemInCluster) * 100
+	}
+	fmt.Fprintf(w, "%s/%s (%d%%)\t\n",
+		strconv.FormatInt(usedGPUMemInCluster, 10),
+		strconv.FormatInt(totalGPUMemInCluster, 10),
+		int64(gpuUsage))
+	// fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", ...)
+
+	_ = w.Flush()
+}
+
 func getGPUMemoryInPod(pod v1.Pod) int {
 	gpuMem := 0
 	for _, container := range pod.Spec.Containers {
@@ -125,4 +231,14 @@ func getGPUMemoryInPod(pod v1.Pod) int {
 		}
 	}
 	return gpuMem
+}
+
+func getMaxGPUCount(nodeInfos []*NodeInfo) (max int) {
+	for _, node := range nodeInfos {
+		if node.gpuCount > max {
+			max = node.gpuCount
+		}
+	}
+
+	return max
 }

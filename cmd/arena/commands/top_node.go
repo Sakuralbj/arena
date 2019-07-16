@@ -31,8 +31,9 @@ import (
 )
 
 var (
-	showDetails   bool
-	showGPUMemory bool
+	showDetails          bool
+	showGPUMemory        bool
+	showGPUMemorysummary bool
 )
 var pods []v1.Pod
 var nodes []v1.Node
@@ -72,14 +73,20 @@ func NewTopNodeCommand() *cobra.Command {
 					fmt.Printf("Failed due to %v", err)
 					os.Exit(1)
 				}
-				displayDetails(nodeInfos)
+				if showDetails {
+					displayDetails(nodeInfos)
+					os.Exit(1)
+				}
+				displaySummary(nodeInfos)
+				os.Exit(1)
 			}
 			displayTopNode(nodeInfos)
 		},
 	}
 
 	command.Flags().BoolVarP(&showDetails, "details", "d", false, "Display details")
-	command.Flags().BoolVarP(&showGPUMemory, "showmem", "mem", false, "Display GPUmemory details")
+	command.Flags().BoolVarP(&showGPUMemory, "showmem", "m", false, "Display GPUmemory details")
+	command.Flags().BoolVarP(&showGPUMemorysummary, "showmemsummary", "s", false, "Display GPUmemory summary")
 	return command
 }
 
