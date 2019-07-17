@@ -31,9 +31,8 @@ import (
 )
 
 var (
-	showDetails          bool
-	showGPUMemory        bool
-	showGPUMemorysummary bool
+	showDetails   bool
+	showGPUMemory bool
 )
 var pods []v1.Pod
 var nodes []v1.Node
@@ -85,8 +84,8 @@ func NewTopNodeCommand() *cobra.Command {
 	}
 
 	command.Flags().BoolVarP(&showDetails, "details", "d", false, "Display details")
-	command.Flags().BoolVarP(&showGPUMemory, "showmem", "m", false, "Display GPUmemory details")
-	command.Flags().BoolVarP(&showGPUMemorysummary, "showmemsummary", "s", false, "Display GPUmemory summary")
+	command.Flags().BoolVarP(&showGPUMemory, "gpumemory", "m", false, "Display GPUMemory ")
+
 	return command
 }
 
