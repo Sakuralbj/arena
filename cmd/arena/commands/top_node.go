@@ -145,13 +145,25 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 		totalGPUsInCluster     int64
 		allocatedGPUsInCluster int64
 	)
+	gpushare := false
+	for _, nodeInfo := range nodeInfos {
+		if isGPUSharingNode(nodeInfo.node) {
+			gpushare = true
+			break
 
-	fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Total)\tGPU(Allocated)\n")
+		}
+	}
+	if gpushare {
+		fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Total)\tGPU(Allocated)\tGPUMemory\n")
+	} else {
+		fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Total)\tGPU(Allocated)\n")
+	}
 	for _, nodeInfo := range nodeInfos {
 		// Skip NotReady node
 		//if ! isNodeReady(nodeInfo.node) {
 		//	continue
 		//}
+
 		totalGPU, allocatedGPU := calculateNodeGPU(nodeInfo)
 		totalGPUsInCluster += totalGPU
 		allocatedGPUsInCluster += allocatedGPU
@@ -162,12 +174,24 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 		if len(role) == 0 {
 			role = "<none>"
 		}
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", nodeInfo.node.Name,
-			address,
-			role,
-			strconv.FormatInt(totalGPU, 10),
-			strconv.FormatInt(allocatedGPU, 10))
+		if gpushare {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s", nodeInfo.node.Name,
+				address,
+				role,
+				strconv.FormatInt(totalGPU, 10),
+				strconv.FormatInt(allocatedGPU, 10))
+			if isGPUSharingNode(nodeInfo.node) {
+				fmt.Fprintf(w, "\t%s\n", strconv.FormatInt(nodeInfo.node.Status.Allocatable[resourceName].Value(), 10))
+			} else {
+				fmt.Fprintf(w, "\t%s\n", "N/A")
+			}
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", nodeInfo.node.Name,
+				address,
+				role,
+				strconv.FormatInt(totalGPU, 10),
+				strconv.FormatInt(allocatedGPU, 10))
+		}
 	}
 	fmt.Fprintf(w, "-----------------------------------------------------------------------------------------\n")
 	fmt.Fprintf(w, "Allocated/Total GPUs In Cluster:\n")
@@ -237,6 +261,9 @@ func displayTopNodeDetails(nodeInfos []NodeInfo) {
 
 		fmt.Fprintf(w, "Total GPUs In Node %s:\t%s \t\n", nodeInfo.node.Name, strconv.FormatInt(totalGPU, 10))
 		fmt.Fprintf(w, "Allocated GPUs In Node %s:\t%s (%d%%)\t\n", nodeInfo.node.Name, strconv.FormatInt(allocatedGPU, 10), int64(gpuUsageInNode))
+		if isGPUSharingNode(nodeInfo.node) {
+			fmt.Fprintf(w, "Total GPUMemory In Node %s:\t%s \t\n", nodeInfo.node.Name, strconv.FormatInt(nodeInfo.node.Status.Capacity[resourceName].Value(), 10))
+		}
 		log.Debugf("gpu: %s, allocated GPUs %s", strconv.FormatInt(totalGPU, 10),
 			strconv.FormatInt(allocatedGPU, 10))
 
