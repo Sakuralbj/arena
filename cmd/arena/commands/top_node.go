@@ -31,7 +31,11 @@ import (
 )
 
 var (
-	showDetails bool
+	showDetails  bool
+	showGPUShare bool
+	pods         []v1.Pod
+	Sharenodes   []v1.Node
+	err          error
 )
 
 type NodeInfo struct {
@@ -58,6 +62,20 @@ func NewTopNodeCommand() *cobra.Command {
 			}
 			nd := newNodeDescriber(client, allPods)
 			nodeInfos, err := nd.getAllNodeInfos()
+			Sharenodes, err = getAllSharedGPUNode()
+			if err == nil {
+				pods, err = getActivePodsInAllNodes()
+			}
+			SharenodeInfos, err := buildAllNodeInfos(pods, Sharenodes)
+			if showGPUShare {
+
+				if showDetails {
+					displayDetails(SharenodeInfos)
+					os.Exit(1)
+				}
+				displaySummary(SharenodeInfos)
+				os.Exit(1)
+			}
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -67,6 +85,7 @@ func NewTopNodeCommand() *cobra.Command {
 	}
 
 	command.Flags().BoolVarP(&showDetails, "details", "d", false, "Display details")
+	command.Flags().BoolVarP(&showGPUShare, "gpushare", "s", false, "Display GPUShare information")
 	return command
 }
 
