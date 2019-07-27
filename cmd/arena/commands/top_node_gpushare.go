@@ -141,7 +141,6 @@ func displaySummary(nodeInfos []*ShareNodeInfo) {
 	}
 	buffer.WriteString(fmt.Sprintf("\n"))
 
-	// fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Allocated/Total)\tPENDING(Allocated)\n")
 	fmt.Fprintf(w, buffer.String())
 	for _, nodeInfo := range nodeInfos {
 		address := "unknown"

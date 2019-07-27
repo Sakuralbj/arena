@@ -5,8 +5,6 @@ import (
 	"strconv"
 
 	log "github.com/golang/glog"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/api/core/v1"
 )
 
@@ -42,34 +40,49 @@ type ShareNodeInfo struct {
 }
 
 // The key function
-func buildAllNodeInfos(allPods []v1.Pod, nodes []v1.Node) ([]*ShareNodeInfo, error) {
-	nodeInfos := buildNodeInfoWithPods(allPods, nodes)
-	for _, info := range nodeInfos {
-		if info.gpuTotalMemory > 0 {
-			setUnit(info.gpuTotalMemory, info.gpuCount)
-			err := info.buildDeviceInfo()
+func buildAllShareNodeInfos(allPods []v1.Pod, nodes []v1.Node) ([]*ShareNodeInfo, error) {
+	SharenodeInfos := buildShareNodeInfosWithPods(allPods, nodes)
+	for _, SharenodeInfo := range SharenodeInfos {
+		if SharenodeInfo.gpuTotalMemory > 0 {
+			setUnit(SharenodeInfo.gpuTotalMemory, SharenodeInfo.gpuCount)
+			err := SharenodeInfo.buildDeviceInfo()
 			if err != nil {
 				log.Warningf("Failed due to %v", err)
 				continue
 			}
 		}
 	}
-	return nodeInfos, nil
+	return SharenodeInfos, nil
 }
 
-func (n *NodeInfo) acquirePluginPod() v1.Pod {
-	if n.pluginPod.Name == "" {
-		for _, pod := range n.pods {
-			if val, ok := pod.Labels[pluginComponentKey]; ok {
-				if val == pluginComponentValue {
-					n.pluginPod = pod
-					break
-				}
-			}
+func buildShareNodeInfo(allPods []v1.Pod, node v1.Node) (*ShareNodeInfo, error) {
+	SharenodeInfo := buildShareNodeInfoWithPods(allPods, node)
+
+	if SharenodeInfo.gpuTotalMemory > 0 {
+		setUnit(SharenodeInfo.gpuTotalMemory, SharenodeInfo.gpuCount)
+		err := SharenodeInfo.buildDeviceInfo()
+		if err != nil {
+			log.Warningf("Failed due to %v", err)
 		}
 	}
-	return n.pluginPod
+
+	return SharenodeInfo, nil
 }
+
+//
+//func (n *ShareNodeInfo) acquirePluginPod() v1.Pod {
+//	if n.pluginPod.Name == "" {
+//		for _, pod := range n.pods {
+//			if val, ok := pod.Labels[pluginComponentKey]; ok {
+//				if val == pluginComponentValue {
+//					n.pluginPod = pod
+//					break
+//				}
+//			}
+//		}
+//	}
+//	return n.pluginPod
+//}
 
 func getTotalGPUMemory(node v1.Node) int {
 	val, ok := node.Status.Allocatable[resourceName]
@@ -91,7 +104,7 @@ func getGPUCountInNode(node v1.Node) int {
 	return int(val.Value())
 }
 
-func buildNodeInfoWithPods(pods []v1.Pod, nodes []v1.Node) []*ShareNodeInfo {
+func buildShareNodeInfosWithPods(pods []v1.Pod, nodes []v1.Node) []*ShareNodeInfo {
 	nodeMap := map[string]*ShareNodeInfo{}
 	nodeList := []*ShareNodeInfo{}
 
@@ -132,6 +145,33 @@ func buildNodeInfoWithPods(pods []v1.Pod, nodes []v1.Node) []*ShareNodeInfo {
 	return nodeList
 }
 
+func buildShareNodeInfoWithPods(pods []v1.Pod, node v1.Node) *ShareNodeInfo {
+
+	var info *ShareNodeInfo = &ShareNodeInfo{}
+	info.node = node
+	info.pods = []v1.Pod{}
+	info.gpuCount = getGPUCountInNode(node)
+	info.gpuTotalMemory = getTotalGPUMemory(node)
+	info.devs = map[int]*DeviceInfo{}
+
+	for i := 0; i < info.gpuCount; i++ {
+		dev := &DeviceInfo{
+			pods:        []v1.Pod{},
+			idx:         i,
+			totalGPUMem: info.gpuTotalMemory / info.gpuCount,
+			node:        info.node,
+		}
+		info.devs[i] = dev
+	}
+
+	for _, pod := range pods {
+		if pod.Spec.NodeName == node.Name {
+			info.pods = append(info.pods, pod)
+		}
+	}
+
+	return info
+}
 func (n *ShareNodeInfo) hasPendingGPUMemory() bool {
 	_, found := n.devs[-1]
 	return found
@@ -206,11 +246,6 @@ func hasPendingGPUMemory(nodeInfos []*ShareNodeInfo) (found bool) {
 	}
 
 	return false
-}
-
-func getNodes(nodeName string) ([]v1.Node, error) {
-	node, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	return []v1.Node{*node}, err
 }
 
 func isGPUSharingNode(node v1.Node) bool {
