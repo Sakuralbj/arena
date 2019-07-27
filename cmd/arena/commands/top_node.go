@@ -178,8 +178,8 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 				fmt.Printf("Failed due to %v", err)
 				os.Exit(1)
 			}
-			totalGPU := SharenodeInfo.gpuCount
-			for i := 0; i < totalGPU; i++ {
+			totalGPU = int64(SharenodeInfo.gpuCount)
+			for i := 0; i < int(totalGPU); i++ {
 				if SharenodeInfo.devs[i].usedGPUMem > 0 {
 					allocatedGPU += 1
 				}
@@ -197,12 +197,12 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 			role = "<none>"
 		}
 
-		//status := "ready"
-		//if !isNodeReady(nodeInfo.node) {
-		//	status = "notReady"
-		//} else {
-		//	totalGPUsOnReadyNodeInCluster += totalGPU
-		//}
+		status := "ready"
+		if !isNodeReady(nodeInfo.node) {
+			status = "notReady"
+		} else {
+			totalGPUsOnReadyNodeInCluster += totalGPU
+		}
 
 		if gpushare {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s", nodeInfo.node.Name,
@@ -276,8 +276,8 @@ func displayTopNodeDetails(nodeInfos []NodeInfo) {
 				fmt.Printf("Failed due to %v", err)
 				os.Exit(1)
 			}
-			totalGPU := SharenodeInfo.gpuCount
-			for i := 0; i < totalGPU; i++ {
+			totalGPU = int64(SharenodeInfo.gpuCount)
+			for i := 0; i < int(totalGPU); i++ {
 				if SharenodeInfo.devs[i].usedGPUMem > 0 {
 					allocatedGPU += 1
 				}
