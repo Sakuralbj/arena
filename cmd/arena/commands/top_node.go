@@ -160,9 +160,9 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 		}
 	}
 	if gpushare {
-		fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Total)\tGPU(Allocated)\tGPUShare\n")
+		fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tSTATUS\tGPU(Total)\tGPU(Allocated)\tGPUShare\n")
 	} else {
-		fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tGPU(Total)\tGPU(Allocated)\n")
+		fmt.Fprintf(w, "NAME\tIPADDRESS\tROLE\tSTATUS\tGPU(Total)\tGPU(Allocated)\n")
 	}
 	for _, nodeInfo := range nodeInfos {
 		// Skip NotReady node
@@ -205,9 +205,10 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 		}
 
 		if gpushare {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s", nodeInfo.node.Name,
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s", nodeInfo.node.Name,
 				address,
 				role,
+				status,
 				strconv.FormatInt(totalGPU, 10),
 				strconv.FormatInt(allocatedGPU, 10))
 			if isGPUSharingNode(nodeInfo.node) {
@@ -216,9 +217,10 @@ func displayTopNodeSummary(nodeInfos []NodeInfo) {
 				fmt.Fprintf(w, "\t%s\n", "N/A")
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", nodeInfo.node.Name,
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", nodeInfo.node.Name,
 				address,
 				role,
+				status,
 				strconv.FormatInt(totalGPU, 10),
 				strconv.FormatInt(allocatedGPU, 10))
 		}
